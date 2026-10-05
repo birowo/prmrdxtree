@@ -1,28 +1,8 @@
 package prmrdxtree
 
 import (
-	"log"
+	"errors"
 )
-
-func prms[T any](chr byte, sgmn string, val T) Sgmn[T] {
-	var nds *Nds[T]
-	x := ""
-	j := len(sgmn)
-	for i := j - 1; i > -1; i-- {
-		if sgmn[i] == ':' {
-			nds = &Nds[T]{':': Sgmn[T]{
-				":", x, sgmn[i+1 : j], val, nds,
-			}}
-			var val_ T
-			val = val_
-			j = i
-		}
-		x = string(sgmn[i])
-	}
-	return Sgmn[T]{
-		string(chr), x, sgmn[:j], val, nds,
-	}
-}
 
 type (
 	Sgmn[T any] struct {
@@ -35,28 +15,51 @@ type (
 	Nds[T any] [128]Sgmn[T]
 )
 
+func prms[T any](chr byte, sgmn string, val T) Sgmn[T] {
+	var (
+		nds  *Nds[T]
+		val_ T
+	)
+	x := ""
+	j := len(sgmn)
+	for i := j - 1; i > -1; i-- {
+		if sgmn[i] == ':' {
+			nds = &Nds[T]{':': Sgmn[T]{
+				":", x, sgmn[i+1 : j], val, nds,
+			}}
+			val = val_
+			j = i
+		}
+		x = string(sgmn[i])
+	}
+	return Sgmn[T]{
+		string(chr), x, sgmn[:j], val, nds,
+	}
+}
+
 const prmsMax = 32
 
-func (nds *Nds[T]) Cnfg(path string, val T) {
+func (nds *Nds[T]) Cnfg(path string, val T) error {
 	pathLen := len(path)
+	var val_ T
 	prmsI := 0
 	i := 0
 	for i < pathLen {
 		chr := path[i]
+		if chr < 32 || chr > 127 {
+			return errors.New("invalid char")
+		}
 		if chr == ':' {
 			prmsI++
 			if prmsI > prmsMax {
-				log.Println("prmsLen > ", prmsMax)
-				return
+				return errors.New("prmsNum > 32")
 			}
 		}
 		i++
 		if nds[chr].Nd == "" {
-			nds[chr] = prms(
-				chr, path[i:], val,
-			)
+			nds[chr] = prms(chr, path[i:], val)
 			println("1", path)
-			return
+			return nil
 		} else {
 			sgmn := nds[chr].Sgmn
 			sgmnLen := len(sgmn)
@@ -68,33 +71,30 @@ func (nds *Nds[T]) Cnfg(path string, val T) {
 					if pi == ':' {
 						prmsI++
 						if prmsI > prmsMax {
-							log.Println("prmsLen > ", prmsMax)
-							return
+							return errors.New("prmsNum > 32")
 						}
 					}
 					//j < sgmnLen && i < pathLen
-					var nds_ Nds[T]
-					if len(sgmn[j+1:]) != 0 {
-						nds_[sj] = Sgmn[T]{
-							string(sj),
-							string(sgmn[j+1]),
-							sgmn[j+1:],
-							nds[chr].Val,
-							nds[chr].Nds,
-						}
-					} else {
-						log.Println("error conflict", path)
-						return
+					x := ""
+					if (j + 1) < sgmnLen {
+						x = string(sgmn[j+1])
 					}
-					nds[chr].Sgmn = sgmn[:j]
-					var val_ T
-					nds[chr].Val = val_
-					nds[chr].Nds = &nds_
+					var nds_ Nds[T]
+					nds_[sj] = Sgmn[T]{
+						string(sj),
+						x,
+						sgmn[j+1:],
+						nds[chr].Val,
+						nds[chr].Nds,
+					}
 					nds_[pi] = prms(
 						pi, path[i+1:], val,
 					)
+					nds[chr].Sgmn = sgmn[:j]
+					nds[chr].Val = val_
+					nds[chr].Nds = &nds_
 					println("2", path)
-					return
+					return nil
 				}
 				j++
 				i++
@@ -102,65 +102,64 @@ func (nds *Nds[T]) Cnfg(path string, val T) {
 			if i == pathLen {
 				if j != sgmnLen {
 					//i == pathLen && j < sgmnLen
+					x := ""
+					if (j + 1) < sgmnLen {
+						x = string(sgmn[j+1])
+					}
 					var nds_ Nds[T]
-					if sgmn[j+1:] != "" {
-						nds_[sgmn[j]] = Sgmn[T]{
-							string(sgmn[j]),
-							string(sgmn[j+1]),
-							sgmn[j+1:],
-							nds[chr].Val,
-							nds[chr].Nds,
-						}
-					} else {
-						log.Println("error conflict", path)
-						return
+					nds_[sgmn[j]] = Sgmn[T]{
+						string(sgmn[j]),
+						x,
+						sgmn[j+1:],
+						nds[chr].Val,
+						nds[chr].Nds,
 					}
 					nds[chr].Sgmn = sgmn[:j]
 					nds[chr].Val = val
 					nds[chr].Nds = &nds_
 					println("3", path)
-					return
+					return nil
 				}
 				//i == pathLen && j == sgmnLen
 				nds[chr].Val = val
 				println("4", path, nds[chr].X)
-				return
+				return nil
 			} else {
 				if nds[chr].Nds == nil {
 					//i < pathLen && j == sgmnLen
-					var nds_ Nds[T]
-					nds[chr].Nds = &nds_
-					chr := path[i]
-					if chr == ':' {
+					chr_ := path[i]
+					if chr_ == ':' {
 						prmsI++
 						if prmsI > prmsMax {
-							log.Println(
-								"prmsLen > ", prmsMax,
-							)
-							return
+							return errors.New("prmsNum > 32")
 						}
 					}
-					nds_[chr] = prms(
-						chr, path[i+1:], val,
+					var nds_ Nds[T]
+					nds_[chr_] = prms(
+						chr_, path[i+1:], val,
 					)
+					nds[chr].Nds = &nds_
 					println("5", path)
-					return
+					return nil
 				}
 			}
 		}
 		nds = nds[chr].Nds
 	}
+	return nil
 }
 
 type params struct {
-	Items [32]string
-	Len   int
+	Val [32]string
+	Len int
 }
 
 func (nds *Nds[T]) Find(path string) (params, T) {
 	pathLen := len(path)
-	var prms params
-	var val T
+	var (
+		prms params
+		val  T
+	)
 	i := 0
 	for i < pathLen {
 		chr := path[i]
@@ -183,7 +182,7 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 			i_ := i
 			for i < pathLen {
 				chr := path[i]
-				if chr == nds[':'].X[0] {
+				if string(chr) == nds[':'].X {
 					break
 				}
 				if isNds_ && nds_[chr].Nd == string(chr) {
@@ -191,7 +190,7 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 				}
 				i++
 			}
-			prms.Items[prms.Len] = path[i_:i]
+			prms.Val[prms.Len] = path[i_:i]
 			prms.Len++
 			//println("param:", path[i_:i])
 			sgmn := nds[':'].Sgmn
@@ -209,28 +208,4 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 		return params{}, val
 	}
 	return params{}, val
-}
-
-func replace(str string, chr byte, slcstr []string) string {
-	l := 0
-	for i := 0; i < len(slcstr); i++ {
-		l += len(slcstr[i])
-	}
-	ret := make([]byte, len(str)+l)
-	n := 0
-	j := 0
-	for i := 0; i < len(str); i++ {
-		if str[i] == chr {
-			n += copy(ret[n:], slcstr[j])
-			j++
-			if j == len(slcstr) {
-				n += copy(ret[n:], str[i+1:])
-				return string(ret[:n])
-			}
-			continue
-		}
-		ret[n] = str[i]
-		n++
-	}
-	return string(ret[:n])
 }
