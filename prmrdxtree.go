@@ -6,7 +6,7 @@ import (
 
 type (
 	Sgmn[T any] struct {
-		Nd   string  `json:"Node,omitempty"`
+		Nd   byte    `json:"Node,omitempty"`
 		Sgmn string  `json:"Segment,omitempty"`
 		Val  T       `json:"Value,omitempty"`
 		Nds  *Nds[T] `json:"Nodes,omitempty"`
@@ -23,14 +23,14 @@ func prms[T any](chr byte, sgmn string, val T) Sgmn[T] {
 	for i := j - 1; i > -1; i-- {
 		if sgmn[i] == ':' {
 			nds = &Nds[T]{':': Sgmn[T]{
-				":", sgmn[i+1 : j], val, nds,
+				':', sgmn[i+1 : j], val, nds,
 			}}
 			val = val_
 			j = i
 		}
 	}
 	return Sgmn[T]{
-		string(chr), sgmn[:j], val, nds,
+		chr, sgmn[:j], val, nds,
 	}
 }
 
@@ -55,7 +55,7 @@ func (nds *Nds[T]) Cnfg(ptrn string, val T) error {
 	for i < pathLen {
 		chr := ptrn[i]
 		i++
-		if nds[chr].Nd == "" {
+		if nds[chr].Nd == 0 {
 			nds[chr] = prms(chr, ptrn[i:], val)
 			println("1", ptrn)
 			return nil
@@ -70,7 +70,7 @@ func (nds *Nds[T]) Cnfg(ptrn string, val T) error {
 					//j < sgmnLen && i < pathLen
 					var nds_ Nds[T]
 					nds_[sj] = Sgmn[T]{
-						string(sj),
+						sj,
 						sgmn[j+1:],
 						nds[chr].Val,
 						nds[chr].Nds,
@@ -92,7 +92,7 @@ func (nds *Nds[T]) Cnfg(ptrn string, val T) error {
 					//i == pathLen && j < sgmnLen
 					var nds_ Nds[T]
 					nds_[sgmn[j]] = Sgmn[T]{
-						string(sgmn[j]),
+						sgmn[j],
 						sgmn[j+1:],
 						nds[chr].Val,
 						nds[chr].Nds,
@@ -140,7 +140,7 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 	pathLen := len(path)
 	for i < pathLen {
 		chr := path[i]
-		if nds[chr].Nd == string(chr) {
+		if nds[chr].Nd == chr {
 			sgmn := nds[chr].Sgmn
 			i++
 			i_ := i + len(sgmn)
@@ -153,7 +153,7 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 				//println(path, nds[chr].Val)
 				return prms, nds[chr].Val
 			}
-		} else if nds[':'].Nd == ":" {
+		} else if nds[':'].Nd == ':' {
 			nds_ := nds[':'].Nds
 			isNds_ := nds_ != nil
 			sgmn := nds[':'].Sgmn
@@ -164,7 +164,7 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 				if isSgmn && chr == sgmn[0] {
 					break
 				}
-				if isNds_ && nds_[chr].Nd == string(chr) {
+				if isNds_ && nds_[chr].Nd == chr {
 					break
 				}
 				i++
