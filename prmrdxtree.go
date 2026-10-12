@@ -6,11 +6,10 @@ import (
 
 type (
 	Sgmn[T any] struct {
-		Nd   string  `json:"Nd,omitempty"`
-		X    string  `json:"X,omitempty"`
-		Sgmn string  `json:"Sgmn,omitempty"`
-		Val  T       `json:"Val,omitempty"`
-		Nds  *Nds[T] `json:"Nds,omitempty"`
+		Nd   string  `json:"Node,omitempty"`
+		Sgmn string  `json:"Segment,omitempty"`
+		Val  T       `json:"Value,omitempty"`
+		Nds  *Nds[T] `json:"Nodes,omitempty"`
 	}
 	Nds[T any] [128]Sgmn[T]
 )
@@ -20,20 +19,18 @@ func prms[T any](chr byte, sgmn string, val T) Sgmn[T] {
 		nds  *Nds[T]
 		val_ T
 	)
-	x := ""
 	j := len(sgmn)
 	for i := j - 1; i > -1; i-- {
 		if sgmn[i] == ':' {
 			nds = &Nds[T]{':': Sgmn[T]{
-				":", x, sgmn[i+1 : j], val, nds,
+				":", sgmn[i+1 : j], val, nds,
 			}}
 			val = val_
 			j = i
 		}
-		x = string(sgmn[i])
 	}
 	return Sgmn[T]{
-		string(chr), x, sgmn[:j], val, nds,
+		string(chr), sgmn[:j], val, nds,
 	}
 }
 
@@ -77,14 +74,9 @@ func (nds *Nds[T]) Cnfg(path string, val T) error {
 						}
 					}
 					//j < sgmnLen && i < pathLen
-					x := ""
-					if (j + 1) < sgmnLen {
-						x = string(sgmn[j+1])
-					}
 					var nds_ Nds[T]
 					nds_[sj] = Sgmn[T]{
 						string(sj),
-						x,
 						sgmn[j+1:],
 						nds[chr].Val,
 						nds[chr].Nds,
@@ -104,14 +96,9 @@ func (nds *Nds[T]) Cnfg(path string, val T) error {
 			if i == pathLen {
 				if j != sgmnLen {
 					//i == pathLen && j < sgmnLen
-					x := ""
-					if (j + 1) < sgmnLen {
-						x = string(sgmn[j+1])
-					}
 					var nds_ Nds[T]
 					nds_[sgmn[j]] = Sgmn[T]{
 						string(sgmn[j]),
-						x,
 						sgmn[j+1:],
 						nds[chr].Val,
 						nds[chr].Nds,
@@ -124,7 +111,7 @@ func (nds *Nds[T]) Cnfg(path string, val T) error {
 				}
 				//i == pathLen && j == sgmnLen
 				nds[chr].Val = val
-				println("4", path, nds[chr].X)
+				println("4", path)
 				return nil
 			} else {
 				if nds[chr].Nds == nil {
@@ -175,10 +162,12 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 		} else if nds[':'].Nd == ":" {
 			nds_ := nds[':'].Nds
 			isNds_ := nds_ != nil
+			sgmn := nds[':'].Sgmn
+			sgmnLen := len(sgmn)
 			i_ := i
 			for i < pathLen {
 				chr := path[i]
-				if string(chr) == nds[':'].X {
+				if sgmnLen != 0 && chr == sgmn[0] {
 					break
 				}
 				if isNds_ && nds_[chr].Nd == string(chr) {
@@ -189,8 +178,7 @@ func (nds *Nds[T]) Find(path string) (params, T) {
 			prms.Val[prms.Len] = path[i_:i]
 			prms.Len++
 			//println("param:", path[i_:i])
-			sgmn := nds[':'].Sgmn
-			i_ = i + len(sgmn)
+			i_ = i + sgmnLen
 			if i_ <= pathLen && nds[':'].Sgmn == path[i:i_] {
 				if isNds_ && i_ != pathLen {
 					nds = nds_
