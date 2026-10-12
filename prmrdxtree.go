@@ -41,11 +41,8 @@ const prmsMax = 32
 
 func (nds *Nds[T]) Cnfg(path string, val T) error {
 	pathLen := len(path)
-	var val_ T
 	prmsI := 0
-	i := 0
-	for i < pathLen {
-		chr := path[i]
+	for _, chr := range path {
 		if chr < 32 || chr > 127 {
 			return errors.New("invalid char")
 		}
@@ -55,6 +52,11 @@ func (nds *Nds[T]) Cnfg(path string, val T) error {
 				return errors.New("prmsNum > 32")
 			}
 		}
+	}
+	var val_ T
+	i := 0
+	for i < pathLen {
+		chr := path[i]
 		i++
 		if nds[chr].Nd == "" {
 			nds[chr] = prms(chr, path[i:], val)
@@ -128,12 +130,6 @@ func (nds *Nds[T]) Cnfg(path string, val T) error {
 				if nds[chr].Nds == nil {
 					//i < pathLen && j == sgmnLen
 					chr_ := path[i]
-					if chr_ == ':' {
-						prmsI++
-						if prmsI > prmsMax {
-							return errors.New("prmsNum > 32")
-						}
-					}
 					var nds_ Nds[T]
 					nds_[chr_] = prms(
 						chr_, path[i+1:], val,
